@@ -1,3 +1,5 @@
+"use strict";
+
 const HttpError = require("../models/http-error");
 const pool = require("../mySQL");
 
@@ -42,7 +44,7 @@ const addNewCurrency = async (req, res, next) => {
       const error = new HttpError("Symbol already used", 400);
       return next(error);
     }
-  } catch {
+  } catch (e) {
     const error = new HttpError(
       "Could not add new cryptocurrency, please try again",
       500
@@ -50,18 +52,34 @@ const addNewCurrency = async (req, res, next) => {
     return next(error);
   }
 
-  // Symbol is valid and not already exist, add new crypto
+  // Symbol is valid and available to be added,
   try {
     let sql =
       "INSERT INTO `crypto` (`id`, `symbol`, `price`, `balance`) VALUES (?, ?, ?, ?)";
     let values = [null, symbol, price, 0];
+
+    // Start transaction
+    await pool.promise().query("START TRANSACTION;");
+    // Add a new cryptocurrency to crypto table
     await pool.promise().query(sql, values);
+    // Add a new crypto symbol to a new column of user_wallet table
+    await pool
+      .promise()
+      .query(
+        "ALTER TABLE `user_wallet` ADD `?` FLOAT NOT NULL DEFAULT '0' AFTER `user_id`",
+        [symbol]
+      );
+
+    // Commit changes
+    await pool.promise().query("COMMIT;");
+
     res.status(201).json({ success: true, symbol, price });
   } catch (e) {
     const error = new HttpError(
-      "Could not add new cryptocurrency, please try again",
+      "Could not add new cryptocurrency, please try again!",
       500
     );
+
     return next(error);
   }
 };

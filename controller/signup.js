@@ -65,7 +65,6 @@ const signup = async (req, res, next) => {
   // This block of code need to insert a new user to user table and insert user_id to user_wallet table
   // Use sql transaction
   try {
-
     // Start transaction
     await pool.promise().query("START TRANSACTION;");
 
@@ -74,6 +73,9 @@ const signup = async (req, res, next) => {
     const userId = results.insertId;
     // Add user_id to user_wallet table
     await pool.promise().query(addUserToUserWalletQuery, [userId]);
+
+    // Commit changes
+    await pool.promise().query("COMMIT;");
 
     // Signup success response
     res.json({ success: true, username, userId });
@@ -84,7 +86,8 @@ const signup = async (req, res, next) => {
     });
   }
 
-  await pool.promise().query("COMMIT;")
+  // // Commit changes
+  // await pool.promise().query("COMMIT;")
 };
 
 // Log user in by Json Web Token strategy
