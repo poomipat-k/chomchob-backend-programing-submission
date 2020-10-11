@@ -1,4 +1,5 @@
 const express = require("express");
+const admin = require("../controller/admin");
 const adminController = require("../controller/admin");
 const auth = require("../middleware/check-auth");
 
@@ -9,5 +10,7 @@ const router = express.Router();
 router.post("/crypto", auth, adminController.addNewCurrency);
 
 router.get("/crypto", auth, adminController.getAllCurrencyBalance);
+
+router.put("/crypto", auth, adminController.updateCurrencyPrice)
 
 module.exports = router;
