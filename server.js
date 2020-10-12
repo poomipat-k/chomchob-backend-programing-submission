@@ -4,24 +4,18 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const signupRouter = require("./routes/signup");
 const adminRouter = require("./routes/adminRoutes");
-
-const pool = require("./mySQL");
+const usersRouter = require("./routes/userRoutes");
+const auth = require("./middleware/check-auth");
 
 // Port to listen to
 const port = process.env.PORT || 5000;
 const app = express();
 app.use(bodyParser.json());
 
-app.use("/getrows", (req, res) => {
-  pool.query("SELECT * FROM users", (err, results) => {
-    if (err) throw err;
-    console.log(results);
-    res.send(results);
-  });
-});
-
-app.use("/api/v1/admin", adminRouter);
-app.use("/api/v1/users", signupRouter);
+// Add auth middle where to all admin and user APIs
+app.use("/api/v1/admin", auth, adminRouter);
+app.use("/api/v1/users", usersRouter);
+app.use("/", signupRouter);
 
 // Catch error passed from next() from all route above
 app.use((error, req, res, next) => {
