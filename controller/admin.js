@@ -62,7 +62,6 @@ const addNewCurrency = async (req, res, next) => {
     await pool.promise().query(sql, values);
     res.status(201).json({ success: true, symbol, price });
   } catch (e) {
-    console.log(e);
     const error = new HttpError(
       "Could not add new cryptocurrency, please try again!",
       500
@@ -273,6 +272,7 @@ const updateUserBalanceByUserId = async (req, res, next) => {
   });
 };
 
+// Get all currency balance
 const getAllCurrencyBalance = async (req, res, next) => {
   const userData = req.userData;
 
@@ -282,18 +282,24 @@ const getAllCurrencyBalance = async (req, res, next) => {
     return next(error);
   }
 
+  let searchResults;
   try {
-    const [results, fields] = await pool
-      .promise()
-      .query("SELECT `symbol`, `price`, `balance` FROM `crypto`");
-    res.json({ results });
+    // Query by left join crypto table with user_wallet table Join on crypto.id = user_wallet.crypto_ID
+    // then find SUM(balance) group by crypto id
+    let sql = `SELECT crypto.id, crypto.symbol, SUM(user_wallet.balance) FROM crypto LEFT JOIN user_wallet
+      ON crypto.id = user_wallet.crypto_id GROUP BY crypto.id`;
+    const [results, fields] = await pool.promise().query(sql);
+    searchResults = results;
   } catch (e) {
-    const error = new HttpError(
-      "Can not get list of crypto balance, please try again",
-      500
+    return next(
+      new HttpError(
+        "Could not get all currency balances, please try again",
+        500
+      )
     );
-    return next(error);
   }
+
+  res.json({ cryptoList: searchResults });
 };
 
 module.exports = {
