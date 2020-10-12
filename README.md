@@ -11,4 +11,4 @@
 4. Go to localhost:5000
 
 ## Database tables relationships
-[ERD](https://crafterbucket.s3-ap-southeast-1.amazonaws.com/ERD_ChomChob_Programming.png)
+![ERD](https://crafterbucket.s3-ap-southeast-1.amazonaws.com/ERD_ChomChob_Programming.png)
