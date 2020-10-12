@@ -12,11 +12,12 @@
 
 ## APIs usage
 ### Sign up 
- - /signup  | JSON format request body { "username" : "usernameA", "password" : "qwer"} (admin signup must use the username "admin" only)
+ - route: /signup
+ - Request body with JSON format { "username" : "usernameA", "password" : "qwer"} (admin signup must use the username "admin" only)
 
 ### Login
- - /login | JSON format request body { "username" : "usernameA", "password" : "qwer"}
-
+ - /login
+ - Request body with JSON format { "username" : "usernameA", "password" : "qwer"}
 
 ## Database tables relationships
 ![ERD](https://crafterbucket.s3-ap-southeast-1.amazonaws.com/ERD_ChomChob_Programming.png)
