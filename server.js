@@ -19,7 +19,7 @@ app.use("/", signupRouter);
 
 // Catch error passed from next() from all route above
 app.use((error, req, res, next) => {
-  if (res.headerSent) {
+  if (res.headersSent) {
     return next(error);
   }
   res.status(error.code || 500);
