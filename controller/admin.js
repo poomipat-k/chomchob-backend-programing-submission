@@ -12,7 +12,7 @@ const addNewCurrency = async (req, res, next) => {
   const userData = req.userData;
   let { symbol, price } = req.body;
 
-  // Only admin is able to use the api
+  // Admin authorization check
   if (userData.role !== "admin") {
     const error = new HttpError("Unauthorized, for admin use only", 401);
     return next(error);
@@ -53,7 +53,7 @@ const addNewCurrency = async (req, res, next) => {
     return next(error);
   }
 
-  // Symbol is valid and available to be added,
+  // Symbol is valid and available to be added
   try {
     let sql = "INSERT INTO `crypto` (`id`, `symbol`, `price`) VALUES (?, ?, ?)";
     let values = [null, symbol, price];
@@ -61,7 +61,6 @@ const addNewCurrency = async (req, res, next) => {
     // Add a new cryptocurrency to crypto table
     await pool.promise().query(sql, values);
     res.status(201).json({ success: true, symbol, price });
-
   } catch (e) {
     console.log(e);
     const error = new HttpError(
@@ -69,29 +68,6 @@ const addNewCurrency = async (req, res, next) => {
       500
     );
 
-    return next(error);
-  }
-};
-
-const getAllCurrencyBalance = async (req, res, next) => {
-  const userData = req.userData;
-
-  // Only admin is able to use the api
-  if (userData.role !== "admin") {
-    const error = new HttpError("Unauthorized, for admin use only", 401);
-    return next(error);
-  }
-
-  try {
-    const [results, fields] = await pool
-      .promise()
-      .query("SELECT `symbol`, `price`, `balance` FROM `crypto`");
-    res.json({ results });
-  } catch (e) {
-    const error = new HttpError(
-      "Can not get list of crypto balance, please try again",
-      500
-    );
     return next(error);
   }
 };
@@ -109,7 +85,7 @@ const getAllCurrencyBalance = async (req, res, next) => {
 const updateCurrencyPrice = async (req, res, next) => {
   const userData = req.userData;
 
-  // Only admin is able to use the api
+  // Admin authorization check
   if (userData.role !== "admin") {
     const error = new HttpError("Unauthorized, for admin use only", 401);
     return next(error);
@@ -181,20 +157,23 @@ const updateCurrencyPrice = async (req, res, next) => {
 // eg. { "symbol" : "AAA", "balance" : 500 }
 const updateUserBalanceByUserId = async (req, res, next) => {
   const userData = req.userData;
-  // Only admin is able to use the api
+  // Admin authorization check
   if (userData.role !== "admin") {
     const error = new HttpError("Unauthorized, for admin use only", 401);
     return next(error);
   }
 
   let targetUserId = req.params.targetUserId;
+  //  Find that user exists in users table
   try {
-    let sql = "SELECT * FROM `user_wallet` WHERE `user_id` = ? ";
-    const [results, fields] = await pool.promise().query(sql, [targetUserId]);
-    console.log(results[0]);
-    console.log(results[0]["CCC"]);
+    const [
+      results,
+      fields,
+    ] = await pool
+      .promise()
+      .query("SELECT `id`, `username` FROM users WHERE id = ?", [targetUserId]);
     if (results.length === 0) {
-      const error = new HttpError("User not exist", 404);
+      const error = new HttpError("User not found", 404);
       return next(error);
     }
   } catch (e) {
@@ -205,13 +184,116 @@ const updateUserBalanceByUserId = async (req, res, next) => {
     return next(error);
   }
 
+  // To reach here means  targetUserId is valid
+
+  // Validate symbol and balance input are valid
   let { symbol, balance } = req.body;
 
+  // balance = NaN if input balance is not a number
+  balance = Number(balance);
+  if (!(balance >= 0)) {
+    return next(new HttpError("Balance must be numeric and >= 0", 400));
+  }
+
+  if (!symbol || !(balance >= 0)) {
+    return next(new HttpError("Must provide symbol and balance", 400));
+  }
+
+  let cryptoId;
+  // Find Crypto id from input symbol and save id to cryptoId, throw error if crypto not exists
+  try {
+    let sql = "SELECT `id` FROM crypto WHERE symbol = ?";
+    const [results, fields] = await pool.promise().query(sql, [symbol]);
+    if (results.length === 0) {
+      return next(new HttpError("Crypto symbol not exists", 404));
+    }
+    cryptoId = results[0].id;
+  } catch (e) {
+    const error = new HttpError(
+      "Can not update user balance, please try again",
+      500
+    );
+    return next(error);
+  }
+
+  // Query user_wallet table that match user_id = targetUserId and crypto_id = cryptoId
+  let searchResults;
+  try {
+    let sql = "SELECT * FROM user_wallet WHERE user_id = ? AND crypto_id = ?";
+    let values = [targetUserId, cryptoId];
+    const [results, fields] = await pool.promise().query(sql, values);
+    searchResults = results;
+  } catch (e) {
+    const error = new HttpError(
+      "Can not update user balance, please try again",
+      500
+    );
+    return next(error);
+  }
+
+  // Row not found means the user never owns this currency
+  // Add a new row to user_wallet with this crypto_id
+  if (searchResults.length === 0) {
+    try {
+      let sql =
+        "INSERT INTO `user_wallet` (`id`, `user_id`, `crypto_id`, `balance`) VALUES (?, ?, ?, ?)";
+      let values = [null, targetUserId, cryptoId, balance];
+      await pool.promise().query(sql, values);
+    } catch (e) {
+      const error = new HttpError(
+        "Can not update user balance, please try again",
+        500
+      );
+      return next(error);
+    }
+  }
+
+  // Matched, update the user balance to input balance
+  else {
+    try {
+      let sql =
+        "UPDATE `user_wallet` SET balance = ? WHERE user_id = ? AND crypto_id = ?";
+      let values = [balance, targetUserId, cryptoId];
+      await pool.promise().query(sql, values);
+    } catch (e) {
+      const error = new HttpError(
+        "Can not update user balance, please try again",
+        500
+      );
+      return next(error);
+    }
+  }
+
   res.json({
+    success: true,
     targetUserId,
+    cryptoId,
     symbol,
     balance,
   });
+};
+
+const getAllCurrencyBalance = async (req, res, next) => {
+  const userData = req.userData;
+
+  // Admin authorization check
+  if (userData.role !== "admin") {
+    const error = new HttpError("Unauthorized, for admin use only", 401);
+    return next(error);
+  }
+
+  try {
+    const [results, fields] = await pool
+      .promise()
+      .query("SELECT `symbol`, `price`, `balance` FROM `crypto`");
+    res.json({ results });
+  } catch (e) {
+    const error = new HttpError(
+      "Can not get list of crypto balance, please try again",
+      500
+    );
+    return next(error);
+  }
 };
 
 module.exports = {
