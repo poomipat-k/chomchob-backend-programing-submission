@@ -7,6 +7,7 @@ const pool = require("../mySQL");
 // Params:
 //  Pass token that get from login as Bearer token
 //  pass symbol and price by request body
+// eg. { "symbol" : "ABC" , "price" : 12.5 }
 const addNewCurrency = async (req, res, next) => {
   const userData = req.userData;
   let { symbol, price } = req.body;
@@ -54,20 +55,19 @@ const addNewCurrency = async (req, res, next) => {
 
   // Symbol is valid and available to be added,
   try {
-    let sql =
-      "INSERT INTO `crypto` (`id`, `symbol`, `price`, `balance`) VALUES (?, ?, ?, ?)";
-    let values = [null, symbol, price, 0];
+    let sql = "INSERT INTO `crypto` (`id`, `symbol`, `price`) VALUES (?, ?, ?)";
+    let values = [null, symbol, price];
 
     // Start transaction
     await pool.promise().query("START TRANSACTION;");
     // Add a new cryptocurrency to crypto table
     await pool.promise().query(sql, values);
     // Add a new crypto symbol to a new column of user_wallet table
+    // ${symbol} risk of SQL injection but only admin can use this route
     await pool
       .promise()
       .query(
-        "ALTER TABLE `user_wallet` ADD `?` FLOAT NOT NULL DEFAULT '0' AFTER `user_id`",
-        [symbol]
+        `ALTER TABLE user_wallet ADD ${symbol} FLOAT NOT NULL DEFAULT '0' AFTER user_id`
       );
 
     // Commit changes
@@ -75,6 +75,7 @@ const addNewCurrency = async (req, res, next) => {
 
     res.status(201).json({ success: true, symbol, price });
   } catch (e) {
+    console.log(e);
     const error = new HttpError(
       "Could not add new cryptocurrency, please try again!",
       500
@@ -107,6 +108,7 @@ const getAllCurrencyBalance = async (req, res, next) => {
   }
 };
 
+//  Add a new currency to crypto table
 // API clarification:
 // ChomChob requirement "Admin can manage exchange rate between cryptocurrency."
 // From my understanding it is not a good idea to manipulate the exchange rate of any specific pair
@@ -114,7 +116,6 @@ const getAllCurrencyBalance = async (req, res, next) => {
 // So the exchange rate of the currency and all other currency changes automatically ((updated priceA)/ priceB)
 
 // Params:
-//  Add a new currency to crypto table
 //  Pass token that get from login as Bearer token
 //  pass symbol and price by request body
 const updateCurrencyPrice = async (req, res, next) => {
@@ -186,8 +187,48 @@ const updateCurrencyPrice = async (req, res, next) => {
   }
 };
 
+// Admin update user balance via route "/api/v1/admin/crypto/:targetUserId"
+// Params:
+// pass symbol and balance in request body
+// eg. { "symbol" : "AAA", "balance" : 500 }
+const updateUserBalanceByUserId = async (req, res, next) => {
+  const userData = req.userData;
+  // Only admin is able to use the api
+  if (userData.role !== "admin") {
+    const error = new HttpError("Unauthorized, for admin use only", 401);
+    return next(error);
+  }
+
+  let targetUserId = req.params.targetUserId;
+  try {
+    let sql = "SELECT * FROM `user_wallet` WHERE `user_id` = ? ";
+    const [results, fields] = await pool.promise().query(sql, [targetUserId]);
+    console.log(results[0]);
+    console.log(results[0]["CCC"]);
+    if (results.length === 0) {
+      const error = new HttpError("User not exist", 404);
+      return next(error);
+    }
+  } catch (e) {
+    const error = new HttpError(
+      "Can not update user balance, please try again",
+      500
+    );
+    return next(error);
+  }
+
+  let { symbol, balance } = req.body;
+
+  res.json({
+    targetUserId,
+    symbol,
+    balance,
+  });
+};
+
 module.exports = {
   addNewCurrency,
   getAllCurrencyBalance,
   updateCurrencyPrice,
+  updateUserBalanceByUserId,
 };

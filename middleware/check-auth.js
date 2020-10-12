@@ -1,5 +1,6 @@
-const jwt = require("jsonwebtoken");
+"use strict";
 
+const jwt = require("jsonwebtoken");
 const HttpError = require("../models/http-error");
 
 // Same key that use when signup a user

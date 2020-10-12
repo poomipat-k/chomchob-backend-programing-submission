@@ -58,36 +58,18 @@ const signup = async (req, res, next) => {
     "INSERT INTO `users` (`id`, `username`, `password`, `role`) VALUES (?, ?, ?, ?)";
   const signupData = [null, username, hashedPassword, role];
 
-  // Insert a new row in users_wallet table
-  let addUserToUserWalletQuery =
-    "INSERT INTO `user_wallet` (`user_id`) VALUES (?)";
-
-  // This block of code need to insert a new user to user table and insert user_id to user_wallet table
-  // Use sql transaction
   try {
-    // Start transaction
-    await pool.promise().query("START TRANSACTION;");
-
     // Signup
     const [results] = await pool.promise().query(signupQuery, signupData);
     const userId = results.insertId;
-    // Add user_id to user_wallet table
-    await pool.promise().query(addUserToUserWalletQuery, [userId]);
-
-    // Commit changes
-    await pool.promise().query("COMMIT;");
 
     // Signup success response
     res.json({ success: true, username, userId });
   } catch (e) {
-    return res.status(400).json({
-      error: e,
-      success: false,
-    });
+    console.log(e);
+    const error = new HttpError("Can not sign up, please try again", 500);
+    return next(error);
   }
-
-  // // Commit changes
-  // await pool.promise().query("COMMIT;")
 };
 
 // Log user in by Json Web Token strategy
