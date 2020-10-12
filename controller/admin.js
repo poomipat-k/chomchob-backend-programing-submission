@@ -58,22 +58,10 @@ const addNewCurrency = async (req, res, next) => {
     let sql = "INSERT INTO `crypto` (`id`, `symbol`, `price`) VALUES (?, ?, ?)";
     let values = [null, symbol, price];
 
-    // Start transaction
-    await pool.promise().query("START TRANSACTION;");
     // Add a new cryptocurrency to crypto table
     await pool.promise().query(sql, values);
-    // Add a new crypto symbol to a new column of user_wallet table
-    // ${symbol} risk of SQL injection but only admin can use this route
-    await pool
-      .promise()
-      .query(
-        `ALTER TABLE user_wallet ADD ${symbol} FLOAT NOT NULL DEFAULT '0' AFTER user_id`
-      );
-
-    // Commit changes
-    await pool.promise().query("COMMIT;");
-
     res.status(201).json({ success: true, symbol, price });
+
   } catch (e) {
     console.log(e);
     const error = new HttpError(
