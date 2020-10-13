@@ -1,8 +1,8 @@
 # Chomchob backend programming submission
 ## Tools
  - Backend Node.js (Express.js)
- - Database MySQL host on remotemysql.com
- - javascript MySQL driver -> mysql2
+ - Database MySQL hosted on remotemysql.com
+ - javascript MySQL driver -> npm mysql2
 
 ## How to run this api
 1. git clone
